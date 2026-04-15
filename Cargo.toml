@@ -1,0 +1,13 @@
+[package]
+name = "ascii_identifier"
+version = "0.1.0"
+edition = "2024"
+authors = ["Rob Grindeland <rgrindeland@gmail.com>"]
+
+[features]
+serde = ["dep:serde"]
+
+[dependencies]
+nonmax = "0.5.5"
+serde = { version = "1.0.228", optional = true }
+thiserror = "2.0.18"
