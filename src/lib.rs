@@ -9,6 +9,9 @@ use std::{
 use nonmax::NonMaxU8;
 use thiserror::Error;
 
+/// An 8-byte [`AsciiIdentifier`] with space for up to 7 characters.
+pub type AsciiIdentifier8 = AsciiIdentifier<7>;
+
 /// A 16-byte [`AsciiIdentifier`] with space for up to 15 characters.
 pub type AsciiIdentifier16 = AsciiIdentifier<15>;
 
