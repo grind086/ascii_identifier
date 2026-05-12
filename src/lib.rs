@@ -65,7 +65,7 @@ impl<const LEN: usize> AsciiIdentifier<LEN> {
     ///
     /// ```
     /// # use ascii_identifier::AsciiIdentifier16 as AsciiIdentifier;
-    /// let id = AsciiIdentifier::from_str("hello!").unwrap();
+    /// let id = AsciiIdentifier::try_from_str("hello!").unwrap();
     /// assert_eq!(id, "hello!");
     /// ```
     ///
@@ -74,8 +74,32 @@ impl<const LEN: usize> AsciiIdentifier<LEN> {
     /// An error will be returned if:
     /// - The string is longer than `LEN` bytes
     /// - The string is not valid ASCII
-    pub const fn from_str(s: &str) -> Result<Self, AsciiIdentifierError> {
-        Self::from_bytes(s.as_bytes())
+    pub const fn try_from_str(s: &str) -> Result<Self, AsciiIdentifierError> {
+        Self::try_from_bytes(s.as_bytes())
+    }
+
+    /// Creates a new `AsciiIdentifier` from the given ASCII string.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use ascii_identifier::AsciiIdentifier16 as AsciiIdentifier;
+    /// assert_eq!(AsciiIdentifier::from_str("hello!"), "hello!");
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if:
+    /// - The string is longer than `LEN` bytes
+    /// - The string is not valid ASCII
+    pub const fn from_str(s: &str) -> Self {
+        match Self::try_from_str(s) {
+            Ok(id) => id,
+            Err(_) => {
+                core::hint::cold_path();
+                panic!("invalid `AsciiIdentifier`")
+            }
+        }
     }
 
     /// Creates a new `AsciiIdentifier` from the given ASCII bytes.
@@ -84,7 +108,7 @@ impl<const LEN: usize> AsciiIdentifier<LEN> {
     ///
     /// ```
     /// # use ascii_identifier::AsciiIdentifier16 as AsciiIdentifier;
-    /// let id = AsciiIdentifier::from_bytes(&[0x68, 0x65, 0x6C, 0x6C, 0x6F, 0x21]).unwrap();
+    /// let id = AsciiIdentifier::try_from_bytes(&[0x68, 0x65, 0x6C, 0x6C, 0x6F, 0x21]).unwrap();
     /// assert_eq!(id, "hello!");
     /// ```
     ///
@@ -93,11 +117,38 @@ impl<const LEN: usize> AsciiIdentifier<LEN> {
     /// An error will be returned if:
     /// - The slice is longer than `LEN` bytes
     /// - The slice does not contain valid ASCII bytes
-    pub const fn from_bytes(s: &[u8]) -> Result<Self, AsciiIdentifierError> {
+    pub const fn try_from_bytes(s: &[u8]) -> Result<Self, AsciiIdentifierError> {
         match validate_ascii_slice(LEN, s) {
             // SAFETY: The slice contains 1 to `LEN` ASCII bytes.
             Ok(()) => Ok(unsafe { Self::from_bytes_unchecked(s) }),
             Err(err) => Err(err),
+        }
+    }
+
+    /// Creates a new `AsciiIdentifier` from the given ASCII bytes.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use ascii_identifier::AsciiIdentifier16 as AsciiIdentifier;
+    /// let id = AsciiIdentifier::from_bytes(&[0x68, 0x65, 0x6C, 0x6C, 0x6F, 0x21]);
+    /// assert_eq!(id, "hello!");
+    /// ```
+    ///
+    /// # Panics
+    ///
+    /// This function will panic if:
+    /// - The slice is longer than `LEN` bytes
+    /// - The slice does not contain valid ASCII bytes
+    ///
+    /// See [`Self::try_from_bytes`] for a non-panicking variant.
+    pub const fn from_bytes(s: &[u8]) -> Self {
+        match Self::try_from_bytes(s) {
+            Ok(id) => id,
+            Err(_) => {
+                core::hint::cold_path();
+                panic!("invalid `AsciiIdentifier`")
+            }
         }
     }
 
@@ -133,7 +184,7 @@ impl<const LEN: usize> AsciiIdentifier<LEN> {
     ///
     /// ```
     /// # use ascii_identifier::AsciiIdentifier16 as AsciiIdentifier;
-    /// let mut id = AsciiIdentifier::from_str("abc").unwrap();
+    /// let mut id = AsciiIdentifier::from_str("abc");
     /// id.push_str("123").unwrap();
     /// assert_eq!(id, "abc123");
     /// ```
@@ -192,8 +243,7 @@ impl<const LEN: usize> AsciiIdentifier<LEN> {
     ///
     /// ```
     /// # use ascii_identifier::AsciiIdentifier16 as AsciiIdentifier;
-    /// let id = AsciiIdentifier::from_str("hello!").unwrap();
-    /// assert_eq!(id.len(), 6);
+    /// assert_eq!(AsciiIdentifier::from_str("hello!").len(), 6);
     /// ```
     #[allow(
         clippy::len_without_is_empty,
@@ -209,8 +259,10 @@ impl<const LEN: usize> AsciiIdentifier<LEN> {
     ///
     /// ```
     /// # use ascii_identifier::AsciiIdentifier16 as AsciiIdentifier;
-    /// let id = AsciiIdentifier::from_str("hello!").unwrap();
-    /// assert_eq!(id.as_bytes(), &[0x68, 0x65, 0x6C, 0x6C, 0x6F, 0x21]);
+    /// assert_eq!(
+    ///     AsciiIdentifier::from_str("hello!").as_bytes(),
+    ///     &[0x68, 0x65, 0x6C, 0x6C, 0x6F, 0x21]
+    /// );
     /// ```
     pub const fn as_bytes(&self) -> &[u8] {
         // SAFETY: `bytes` contains at least `len` bytes
@@ -223,8 +275,7 @@ impl<const LEN: usize> AsciiIdentifier<LEN> {
     ///
     /// ```
     /// # use ascii_identifier::AsciiIdentifier16 as AsciiIdentifier;
-    /// let id = AsciiIdentifier::from_str("hello!").unwrap();
-    /// assert_eq!(id.as_str(), "hello!");
+    /// assert_eq!(AsciiIdentifier::from_str("hello!").as_str(), "hello!");
     /// ```
     pub const fn as_str(&self) -> &str {
         // SAFETY: Bytes are guaranteed to be ASCII, which is a subset of UTF-8
@@ -277,7 +328,7 @@ impl<const LEN: usize> Display for AsciiIdentifier<LEN> {
 impl<const LEN: usize> FromStr for AsciiIdentifier<LEN> {
     type Err = AsciiIdentifierError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Self::from_str(s)
+        Self::try_from_str(s)
     }
 }
 
@@ -372,18 +423,22 @@ mod serde_impl {
 mod tests {
     use super::*;
 
+    // Const constructors
+    const _TEST_FROM_STR: AsciiIdentifier16 = AsciiIdentifier16::from_str("test");
+    const _TEST_FROM_BYTES: AsciiIdentifier16 = AsciiIdentifier16::from_bytes(b"test");
+
     #[test]
     fn str_equality() {
-        assert_eq!(AsciiIdentifier16::from_str("abcd").unwrap(), "abcd");
-        assert_eq!("abcd", AsciiIdentifier16::from_str("abcd").unwrap());
-        assert_ne!(AsciiIdentifier16::from_str("abcd").unwrap(), "efgh");
-        assert_ne!("efgh", AsciiIdentifier16::from_str("abcd").unwrap());
+        assert_eq!(AsciiIdentifier16::try_from_str("abcd").unwrap(), "abcd");
+        assert_eq!("abcd", AsciiIdentifier16::try_from_str("abcd").unwrap());
+        assert_ne!(AsciiIdentifier16::try_from_str("abcd").unwrap(), "efgh");
+        assert_ne!("efgh", AsciiIdentifier16::try_from_str("abcd").unwrap());
     }
 
     #[test]
     fn parse_display_roundtrip() {
         assert_eq!(
-            AsciiIdentifier16::from_str("hello-ident")
+            AsciiIdentifier16::try_from_str("hello-ident")
                 .unwrap()
                 .to_string(),
             "hello-ident"
@@ -402,19 +457,19 @@ mod tests {
     fn empty_identifier() {
         assert_eq!(AsciiIdentifier16::new(), "");
         assert_eq!(AsciiIdentifier16::default(), "");
-        assert_eq!(AsciiIdentifier16::from_bytes(&[]).unwrap(), "");
-        assert_eq!(AsciiIdentifier16::from_str("").unwrap(), "");
+        assert_eq!(AsciiIdentifier16::try_from_bytes(&[]).unwrap(), "");
+        assert_eq!(AsciiIdentifier16::try_from_str("").unwrap(), "");
     }
 
     #[test]
     fn push_overflow_fails() {
-        let mut id = AsciiIdentifier16::from_bytes(&[0; 15]).unwrap();
+        let mut id = AsciiIdentifier16::try_from_bytes(&[0; 15]).unwrap();
         assert!(matches!(
             id.push_bytes(&[0]).unwrap_err(),
             AsciiIdentifierError::TooLong,
         ));
 
-        let mut id = AsciiIdentifier16::from_str("0123456789abcde").unwrap();
+        let mut id = AsciiIdentifier16::try_from_str("0123456789abcde").unwrap();
         assert!(matches!(
             id.push_str("f").unwrap_err(),
             AsciiIdentifierError::TooLong,
@@ -439,18 +494,18 @@ mod tests {
     #[test]
     fn too_long_identifier_fails() {
         assert!(matches!(
-            AsciiIdentifier16::from_bytes(&[b'a'; 16]).unwrap_err(),
+            AsciiIdentifier16::try_from_bytes(&[b'a'; 16]).unwrap_err(),
             AsciiIdentifierError::TooLong,
         ));
 
         // Wrap `u8` length
         assert!(matches!(
-            AsciiIdentifier16::from_bytes(&[b'a'; 260]).unwrap_err(),
+            AsciiIdentifier16::try_from_bytes(&[b'a'; 260]).unwrap_err(),
             AsciiIdentifierError::TooLong,
         ));
 
         assert!(matches!(
-            AsciiIdentifier16::from_str("0123456789abcdef").unwrap_err(),
+            AsciiIdentifier16::try_from_str("0123456789abcdef").unwrap_err(),
             AsciiIdentifierError::TooLong,
         ));
     }
@@ -458,12 +513,12 @@ mod tests {
     #[test]
     fn non_ascii_identifier_fails() {
         assert!(matches!(
-            AsciiIdentifier16::from_bytes(&[0xFF]).unwrap_err(),
+            AsciiIdentifier16::try_from_bytes(&[0xFF]).unwrap_err(),
             AsciiIdentifierError::NotAscii,
         ));
 
         assert!(matches!(
-            AsciiIdentifier16::from_str("♥").unwrap_err(),
+            AsciiIdentifier16::try_from_str("♥").unwrap_err(),
             AsciiIdentifierError::NotAscii,
         ));
     }
@@ -471,7 +526,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "`AsciiIdentifier<LEN>` may have a `LEN` of at most 255")]
     fn length_greater_than_255_from_bytes_panics() {
-        AsciiIdentifier::<256>::from_bytes(&[b'a'; 256]).unwrap();
+        AsciiIdentifier::<256>::try_from_bytes(&[b'a'; 256]).unwrap();
     }
 
     #[test]
